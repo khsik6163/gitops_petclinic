@@ -26,6 +26,13 @@ jobs:
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
+      # [추가] 파일 위치 확인용 디버깅 단계
+      - name: Check files and path
+        run: |
+          echo "현재 디렉토리 확인:"
+          pwd
+          echo "파일 목록 확인:"
+          ls -R
 
       # 4. 이미지 빌드 & 푸시 (사용자님의 ECR 레포지토리 이름: k8s-cluster-1-repo)
       # Nginx와 Tomcat을 태그로 구분하거나 별도 레포를 써야 하지만, 여기서는 태그로 구분하는 방식을 적용했습니다.
