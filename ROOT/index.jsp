@@ -158,7 +158,7 @@ response.setCharacterEncoding("UTF-8");
         }
 
         .btn-secondary {
-            background: linear-gradient(45deg, #6c757d, #495057);
+            background: linear-gradient(45deg, #ffcc00, #495057);
             box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
         }
 
@@ -356,6 +356,7 @@ response.setCharacterEncoding("UTF-8");
     </div>
 </body>
 </html>
+
 
 
 
