@@ -1,0 +1,19 @@
+FROM tomcat:9.0-jdk11-openjdk-slim
+
+# 기본 ROOT 앱 제거
+RUN rm -rf /usr/local/tomcat/webapps/ROOT
+
+# MySQL Connector 설치 (버전 최신화)
+ENV MYSQL_DRIVER_VERSION=8.0.33
+RUN apt-get update && apt-get install -y wget && \
+    wget https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/${MYSQL_DRIVER_VERSION}/mysql-connector-j-${MYSQL_DRIVER_VERSION}.jar \
+    -O /usr/local/tomcat/lib/mysql-connector-j-${MYSQL_DRIVER_VERSION}.jar && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 설정 및 소스 복사
+COPY ROOT/ /usr/local/tomcat/webapps/ROOT/
+COPY server.xml /usr/local/tomcat/conf/server.xml
+COPY context.xml /usr/local/tomcat/conf/context.xml
+
+EXPOSE 8080
+CMD ["catalina.sh", "run"]
