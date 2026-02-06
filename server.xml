@@ -8,5 +8,5 @@
               username="admin" 
               password="powermvp" 
               driverClassName="com.mysql.cj.jdbc.Driver"
-              url="jdbc:mysql://mydb.crgedgvs64um.ap-northeast-2.rds.amazonaws.com:3306/board_db?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true"/>
+              url="jdbc:mysql://mydb.c9osquca0esm.ap-northeast-2.rds.amazonaws.com:3306/board_db?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true"/>
 </GlobalNamingResources>
