@@ -12,7 +12,7 @@ jobs:
     steps:
       # 1. 코드 체크아웃
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       # 2. AWS 자격 증명 세팅
       - name: Configure AWS credentials
@@ -27,50 +27,45 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      # 4. Nginx 이미지 빌드 & 푸시
-      - name: Build & Push nginx Docker image
+      # 4. 이미지 빌드 & 푸시 (사용자님의 ECR 레포지토리 이름: k8s-cluster-1-repo)
+      # Nginx와 Tomcat을 태그로 구분하거나 별도 레포를 써야 하지만, 여기서는 태그로 구분하는 방식을 적용했습니다.
+      - name: Build & Push Docker images
         run: |
           IMAGE_TAG=${GITHUB_SHA::7}
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/ecr_nginx:$IMAGE_TAG -f ./Dockerfile.nginx .
-          docker push ${{ steps.login-ecr.outputs.registry }}/ecr_nginx:$IMAGE_TAG
-          echo "NGINX_IMAGE=${{ steps.login-ecr.outputs.registry }}/ecr_nginx:$IMAGE_TAG" >> $GITHUB_ENV
+          REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY="k8s-cluster-1-repo"
+          
+          # Nginx 빌드 및 푸시 (태그 형식: nginx-hash)
+          docker build -t $REGISTRY/$REPOSITORY:nginx-$IMAGE_TAG -f ./Dockerfile.nginx .
+          docker push $REGISTRY/$REPOSITORY:nginx-$IMAGE_TAG
+          
+          # Tomcat 빌드 및 푸시 (태그 형식: tomcat-hash)
+          docker build -t $REGISTRY/$REPOSITORY:tomcat-$IMAGE_TAG -f ./Dockerfile.tomcat .
+          docker push $REGISTRY/$REPOSITORY:tomcat-$IMAGE_TAG
+          
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      # 5. Tomcat 이미지 빌드 & 푸시
-      - name: Build & Push tomcat Docker image
+      # 5. Deployment YAML 업데이트 (sed 명령어 최적화)
+      - name: Update Deployment YAMLs
         run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/ecr_tomcat:$IMAGE_TAG -f ./Dockerfile.tomcat .
-          docker push ${{ steps.login-ecr.outputs.registry }}/ecr_tomcat:$IMAGE_TAG
-          echo "TOMCAT_IMAGE=${{ steps.login-ecr.outputs.registry }}/ecr_tomcat:$IMAGE_TAG" >> $GITHUB_ENV
+          # nginx 이미지 주소 업데이트
+          sed -i "s|image: .*k8s-cluster-1-repo:nginx-.*|image: 009946608368.dkr.ecr.ap-northeast-2.amazonaws.com/k8s-cluster-1-repo:nginx-${{ env.IMAGE_TAG }}|" ./deployment-nginx.yaml
+          
+          # tomcat 이미지 주소 업데이트
+          sed -i "s|image: .*k8s-cluster-1-repo:tomcat-.*|image: 009946608368.dkr.ecr.ap-northeast-2.amazonaws.com/k8s-cluster-1-repo:tomcat-${{ env.IMAGE_TAG }}|" ./deployment-tomcat.yaml
 
-      # 6. Deployment YAML 업데이트
-      - name: Update nginx Deployment YAML
-        run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          sed -i "s|image: .*|image: 009946608368.dkr.ecr.ap-northeast-2.amazonaws.com/ecr_nginx:$IMAGE_TAG|" ./deployment-nginx.yaml
-
-      - name: Update tomcat Deployment YAML
-        run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          sed -i "s|image: .*|image: 009946608368.dkr.ecr.ap-northeast-2.amazonaws.com/ecr_tomcat:$IMAGE_TAG|" ./deployment-tomcat.yaml
-
-      # 7. 변경사항이 있으면 커밋 & 푸시
-      #- name: Commit and push if there are changes
-      #  run: |
-      #    git config --global user.name 'GitHub Actions'
-      #    git config --global user.email 'github-actions@github.com'
-      #    git add ./deployment-nginx.yaml ./deployment-tomcat.yaml
-      #    git diff --quiet && git diff --staged --quiet || (
-      #    git commit -m "Update image tag to ${GITHUB_SHA}"
-      #    git push https://${{ secrets.PAT }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
-      #   )
-
+      # 6. 변경사항 커밋 & 푸시 (PAT 사용 권장)
       - name: Commit and Push changes
         run: |
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'github-actions@github.com'
           git add ./deployment-nginx.yaml ./deployment-tomcat.yaml
-          git diff --quiet && git diff --staged --quiet || (
-          git commit -m "Update image tag to ${GITHUB_SHA}"
-          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/khsik6163/gitops_petclinic.git HEAD:main
-          )
+          
+          # 변경사항이 있을 때만 커밋
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "Update image tag to ${{ env.IMAGE_TAG }}"
+            # GITHUB_TOKEN 대신 사용자님의 PAT를 사용하는 것이 권장됩니다 (권한 문제 방지)
+            git push https://x-access-token:${{ secrets.PAT }}@github.com/khsik6163/gitops_petclinic.git HEAD:main
+          else
+            echo "No changes to commit"
+          fi
